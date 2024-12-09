@@ -69,7 +69,7 @@ func testImage(t *testing.T, filename string, expectedAngle float64) {
 	NumTested++
 	duration := time.Since(start)
 	TotalTime += duration
-	t.Logf("%30v angle: %.1f, %.1f expected (time %v). score %.2f", filepath.Base(filename), angle, expectedAngle, duration, score)
+	t.Logf("%30v angle: %5.1f, %5.1f expected (time %4dms). score %.2f", filepath.Base(filename), angle, expectedAngle, duration.Milliseconds(), score)
 	if expectedAngle != 999 {
 		require.InDelta(t, expectedAngle, angle, 0.2)
 	}

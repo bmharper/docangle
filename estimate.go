@@ -177,7 +177,7 @@ func IsWhite(img Image, x, y, width int, angle float64, whiteThreshold int, prop
 	return float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels
 }
 
-func IsWhiteCgo(img Image, x, y, width int, angle float64, whiteThreshold int, proportionWhitePixels float64) bool {
+func IsWhiteCgo(img Image, x, y, width int, angle float64, whiteThreshold int, proportionWhitePixels float64) float64 {
 	ls := SetupLine(width, angle)
 	var nWhite, nBlack C.int
 	args := C.IterateLineSubpixelBakedC_Args{
@@ -192,7 +192,11 @@ func IsWhiteCgo(img Image, x, y, width int, angle float64, whiteThreshold int, p
 		whiteThreshold: C.int(whiteThreshold),
 	}
 	C.IterateLineSubpixelBakedC(&args, (*C.uint8_t)(&img.Pixels[0]), &nWhite, &nBlack)
-	return float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels
+	if float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels {
+		return 1
+	} else {
+		return 0
+	}
 }
 
 func GetAngleWhiteLines(img *Image) (score, degrees float64) {
@@ -220,7 +224,7 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 	padX := img.Width / 10  // arbitrary padding, but we stay away from the edges to avoid binder holes from affecting us
 	padY := img.Height / 10 // Padding to prevent us overflowing the image, which we will do, because our lines are rotated
 
-	linesAtAngle := make([]int, len(angles))
+	scoreAtAngle := make([]float64, len(angles))
 	x := padX
 
 	// 0..255 threshold where we consider a pixel white
@@ -239,29 +243,26 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 	//targetLines := int(0.05 * float64(totalLineCount))
 	for y := padY; y < img.Height-padY; y++ {
 		for i := range angles {
-			isWhite := IsWhiteCgo(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold, lineIsWhiteThreshold)
-			if isWhite {
-				linesAtAngle[i] = linesAtAngle[i] + 1
-			}
+			scoreAtAngle[i] += IsWhiteCgo(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold, lineIsWhiteThreshold)
 		}
 	}
-	maxWhiteLines := 0
-	for _, lines := range linesAtAngle {
-		maxWhiteLines = max(maxWhiteLines, lines)
+	maxScore := 0.0
+	for _, score := range scoreAtAngle {
+		maxScore = max(maxScore, score)
 	}
 	//if maxWhiteLines > targetLines {
 	//	break
 	//}
 	//}
-	bestLines := 0
+	bestScore := 0.0
 	bestAngle := 0.0 // degrees
-	for i, lines := range linesAtAngle {
+	for i, score := range scoreAtAngle {
 		degrees := angles[i]
 		//fmt.Printf("angle %.1f degrees: %v\n", degrees, lines)
-		if lines > bestLines {
+		if score > bestScore {
 			bestAngle = degrees
-			bestLines = lines
+			bestScore = score
 		}
 	}
-	return float64(bestLines) / float64(totalLineCount), bestAngle
+	return float64(bestScore) / float64(totalLineCount), bestAngle
 }
