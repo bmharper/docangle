@@ -14,4 +14,4 @@ typedef struct
 	int     whiteThreshold; // Threshold for classifying a pixel as white vs black
 } IterateLineSubpixelBakedC_Args;
 
-void IterateLineSubpixelBakedC(IterateLineSubpixelBakedC_Args* args, const uint8_t* pixels, int32_t* outWhite, int32_t* outBlack);
+void IterateLineSubpixelBakedC(IterateLineSubpixelBakedC_Args* args, const uint8_t* pixels, int32_t* outWhite, int32_t* outBlack, int32_t* outTransitions);

@@ -177,9 +177,9 @@ func IsWhite(img Image, x, y, width int, angle float64, whiteThreshold int, prop
 	return float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels
 }
 
-func IsWhiteCgo(img Image, x, y, width int, angle float64, whiteThreshold int, proportionWhitePixels float64) float64 {
+func LineScore(img Image, x, y, width int, angle float64, whiteThreshold int, proportionWhitePixels float64) float64 {
 	ls := SetupLine(width, angle)
-	var nWhite, nBlack C.int
+	var nWhite, nBlack, nTransitions C.int
 	args := C.IterateLineSubpixelBakedC_Args{
 		imgWidth:       C.int(img.Width),
 		startX:         C.int(x),
@@ -191,12 +191,20 @@ func IsWhiteCgo(img Image, x, y, width int, angle float64, whiteThreshold int, p
 		gradient:       C.int32_t(ls.gradient),
 		whiteThreshold: C.int(whiteThreshold),
 	}
-	C.IterateLineSubpixelBakedC(&args, (*C.uint8_t)(&img.Pixels[0]), &nWhite, &nBlack)
-	if float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels {
-		return 1
-	} else {
-		return 0
-	}
+	C.IterateLineSubpixelBakedC(&args, (*C.uint8_t)(&img.Pixels[0]), &nWhite, &nBlack, &nTransitions)
+	// The less transitions the better
+	return 1 / (1 + float64(nTransitions))
+	//if nTransitions < 5 {
+	//	return 1
+	//} else {
+	//	return 0
+	//}
+
+	//if float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels {
+	//	return 1
+	//} else {
+	//	return 0
+	//}
 }
 
 func GetAngleWhiteLines(img *Image) (score, degrees float64) {
@@ -217,6 +225,21 @@ func GetAngleWhiteLines(img *Image) (score, degrees float64) {
 	return vScore, -90 - vAngle
 }
 
+// Count the number of times that score[i] flips between 0 and 1
+func countTransitions(score []float64) int {
+	on := false
+	transitions := 0
+	for _, s := range score {
+		// this threshold is dependent on our scoring function
+		high := s > 0.3
+		if high != on {
+			transitions++
+			on = high
+		}
+	}
+	return transitions
+}
+
 // run horizontal lines across the image, at all test angles, and pick the angle
 // where we get the most uninterrupted lines (pure white)
 func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64) {
@@ -232,37 +255,45 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 	pixelIsWhiteThreshold := 200
 
 	// Proportion of pixels that must be white for us to consider the line white
-	lineIsWhiteThreshold := 0.995
-
-	// Keep lowering our "is this line white" threshold until we get a reasonable number of white lines.
-	//for iter := 0; iter < 10; iter++ {
+	lineIsWhiteThreshold := 0.98
 
 	// The maximum number of white lines we expect to see in the image.
 	totalLineCount := img.Height - padY*2
 
-	//targetLines := int(0.05 * float64(totalLineCount))
+	// Score for each angle and y position
+	scoreAtAngleAndY := make([][]float64, len(angles))
+	for i := range angles {
+		scoreAtAngleAndY[i] = make([]float64, totalLineCount)
+	}
+
 	for y := padY; y < img.Height-padY; y++ {
 		for i := range angles {
-			scoreAtAngle[i] += IsWhiteCgo(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold, lineIsWhiteThreshold)
+			score := LineScore(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold, lineIsWhiteThreshold)
+			scoreAtAngle[i] += score
+			scoreAtAngleAndY[i][y-padY] = score
 		}
 	}
 	maxScore := 0.0
 	for _, score := range scoreAtAngle {
 		maxScore = max(maxScore, score)
 	}
-	//if maxWhiteLines > targetLines {
-	//	break
-	//}
-	//}
 	bestScore := 0.0
 	bestAngle := 0.0 // degrees
+	//bestTransitions := 0
 	for i, score := range scoreAtAngle {
+		transitions := countTransitions(scoreAtAngleAndY[i])
+		//relTransitions :=
 		degrees := angles[i]
 		//fmt.Printf("angle %.1f degrees: %v\n", degrees, lines)
-		if score > bestScore {
+		// Ensure there are at least X transitions, so that we don't pick a page with a narrow column of text down the middle,
+		// and two wide margins. We need transitions between white line and content.
+		if score > bestScore && transitions >= 10 {
 			bestAngle = degrees
 			bestScore = score
+			//bestTransitions = transitions
 		}
 	}
+	//fmt.Printf("Transitions: %v\n", bestTransitions)
+	//fmt.Printf("Transitions: %.2f\n", 100.0*float64(bestTransitions)/float64(totalLineCount))
 	return float64(bestScore) / float64(totalLineCount), bestAngle
 }

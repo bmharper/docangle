@@ -1,6 +1,6 @@
 #include "line.h"
 
-void IterateLineSubpixelBakedC(IterateLineSubpixelBakedC_Args* args, const uint8_t* pixels, int32_t* outWhite, int32_t* outBlack) {
+void IterateLineSubpixelBakedC(IterateLineSubpixelBakedC_Args* args, const uint8_t* pixels, int32_t* outWhite, int32_t* outBlack, int32_t* outTransitions) {
 	int     imgWidth       = args->imgWidth;
 	int     startX         = args->startX;
 	int     startY         = args->startY;
@@ -17,10 +17,12 @@ void IterateLineSubpixelBakedC(IterateLineSubpixelBakedC_Args* args, const uint8
 	int endX = startX + width;
 	int line = y * imgWidth;
 
-	int     nWhite = 0;
-	int     nBlack = 0;
-	int32_t wt     = (int32_t) whiteThreshold;
-	int32_t blend  = 0;
+	int     nWhite      = 0;
+	int     nBlack      = 0;
+	int     nTransition = 0;
+	int     prevColor   = -1;
+	int32_t wt          = (int32_t) whiteThreshold;
+	int32_t blend       = 0;
 
 	while (x < endX) {
 		int32_t va = (int32_t) pixels[line + x];
@@ -40,8 +42,16 @@ void IterateLineSubpixelBakedC(IterateLineSubpixelBakedC_Args* args, const uint8
 
 		if (blended > wt) {
 			nWhite++;
+			if (prevColor == 0) {
+				nTransition++;
+			}
+			prevColor = 1;
 		} else {
 			nBlack++;
+			if (prevColor == 1) {
+				nTransition++;
+			}
+			prevColor = 0;
 		}
 
 		// Update error and coordinates
@@ -60,6 +70,7 @@ void IterateLineSubpixelBakedC(IterateLineSubpixelBakedC_Args* args, const uint8
 	}
 
 	// Store the results
-	*outWhite = nWhite;
-	*outBlack = nBlack;
+	*outWhite       = nWhite;
+	*outBlack       = nBlack;
+	*outTransitions = nTransition;
 }
