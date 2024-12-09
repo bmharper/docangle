@@ -56,7 +56,7 @@ func testImage(t *testing.T, filename string, expectedAngle float64) {
 	gray := makeGray(img)
 	//saveImage(gray)
 	start := time.Now()
-	angle := GetAngle2(gray)
+	angle := GetAngleWhiteLines(gray)
 	NumTested++
 	duration := time.Since(start)
 	TotalTime += duration
@@ -67,17 +67,17 @@ func testImage(t *testing.T, filename string, expectedAngle float64) {
 }
 
 func TestImages(t *testing.T) {
-	//testImage(t, "testimages/red1.jpg", 0.5)
-	//testImage(t, "testimages/red2.jpg", 1.5)
-	//testImage(t, "testimages/red3.jpg", -89.4)
-	//testImage(t, "testimages/diamond_1_Image1.jpg", 0.3)
-	//testImage(t, "testimages/diamond_2_Image1.png", 1.3)
-	//testImage(t, "testimages/bpm_1_X1.jpg", 999)
-	//testImage(t, "testimages/bpm_2_X1.jpg", 999)
-	//testImage(t, "testimages/bpm_3_X1.jpg", 999)
-	//testImage(t, "testimages/bpm_4_X1.jpg", 999)
-	//testImage(t, "testimages/bpm_5_X1.jpg", 999)
-	//testImage(t, "testimages/bpm_6_X1.jpg", 999)
+	testImage(t, "testimages/red1.jpg", 0.5)
+	testImage(t, "testimages/red2.jpg", 1.5)
+	testImage(t, "testimages/red3.jpg", -89.4)
+	testImage(t, "testimages/diamond_1_Image1.jpg", 0.3)
+	testImage(t, "testimages/diamond_2_Image1.png", 1.3)
+	testImage(t, "testimages/bpm_1_X1.jpg", 999)
+	testImage(t, "testimages/bpm_2_X1.jpg", 999)
+	testImage(t, "testimages/bpm_3_X1.jpg", 999)
+	testImage(t, "testimages/bpm_4_X1.jpg", 999)
+	testImage(t, "testimages/bpm_5_X1.jpg", 999)
+	testImage(t, "testimages/bpm_6_X1.jpg", 999)
 	testImage(t, "testimages/cadgrafics_1_x2.jpg", 999)
 	testImage(t, "testimages/cadgrafics_2_x5.jpg", 999)
 	testImage(t, "testimages/caper_1_Im0.jpg", 999)

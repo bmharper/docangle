@@ -1,15 +1,13 @@
 package docangle
 
 import (
-	"fmt"
 	"math"
-	"slices"
 )
 
-const Deg2Rad = math.Pi / 180
+// #include "line.h"
+import "C"
 
-//const LineErrShift = 16
-//const LineErrMul = (1 << LineErrShift)
+const Deg2Rad = math.Pi / 180
 
 type LineSetup struct {
 	dx    int
@@ -20,7 +18,7 @@ type LineSetup struct {
 }
 
 // angle must be between -45 and +45 degrees
-func SetupLine(width int, angle float64) (LineSetup, int) {
+func SetupLine(width int, angle float64) LineSetup {
 	angle *= Deg2Rad
 	// Calculate deltas, at an arbitrary precision of a few thousand pixels
 	dx := 10000 * math.Cos(angle)
@@ -46,35 +44,7 @@ func SetupLine(width int, angle float64) (LineSetup, int) {
 		gradient: gradient,
 	}
 
-	// Determine the max distance we'll walk in the Y direction
-	length := float64(width) / math.Cos(angle)
-	yDelta := int(math.Ceil(length * math.Sin(angle)))
-	return ls, yDelta
-}
-
-// Bresenham iteration
-func IterateLine(startX, startY, width int, ls LineSetup, callback func(x, y int)) {
-	dx, dy, stepY := ls.dx, ls.dy, ls.stepY
-
-	err := dx - dy
-
-	x, y := startX, startY
-	endX := startX + width
-
-	for x < endX {
-		callback(x, y)
-
-		// Update error and coordinates
-		e2 := 2 * err
-		if e2 > -dy {
-			err -= dy
-			x += 1
-		}
-		if e2 < dx {
-			err += dx
-			y += stepY
-		}
-	}
+	return ls
 }
 
 // Bresenham iteration with subpixel data for adjacent vertical (above or below) pixel
@@ -113,112 +83,7 @@ func abs[T int | int32](x T) T {
 	return x
 }
 
-// Returns the max delta between two rotated scanlines
-func AnalyzeBlock(img Image, x, y, width, height int, angle float64) int {
-	ls, _ := SetupLine(width, angle)
-	prev1 := 0
-	prev2 := 0
-	prev3 := 0
-	maxDelta := 0
-	for dy := 0; dy < height; dy++ {
-		total := 0
-		// Whole pixel
-		//IterateLine(x, y+dy, width, ls, func(px, py int) {
-		//	total += int(img.Pixels[py*img.Width+px])
-		//})
-		// Subpixel
-		IterateLineSubpixel(x, y+dy, width, ls, func(px, py int, blend int32) {
-			var va, vb int32
-			va = int32(img.Pixels[py*img.Width+px])
-			if blend < 0 {
-				vb = int32(img.Pixels[(py-1)*img.Width+px])
-			} else {
-				vb = int32(img.Pixels[(py+1)*img.Width+px])
-			}
-			wb := abs(blend)
-			wa := 65536 - wb
-			total += int((va*wa + vb*wb) >> 16)
-		})
-		if dy >= 3 {
-			delta := abs(total - prev3)
-			//delta := abs(total - prev1)
-			if delta > maxDelta {
-				maxDelta = delta
-			}
-		}
-		prev3 = prev2
-		prev2 = prev1
-		prev1 = total
-	}
-	return maxDelta
-}
-
-func GetAngle(img *Image) float64 {
-	//a, _ := SetupLine(64, -3)
-	//b, _ := SetupLine(64, 3)
-	//fmt.Printf("%v, %v\n", a, b)
-
-	padX := 70 // arbitrary padding, but we stay away from the edges to avoid binder holes from affecting us
-	padY := 30 // Padding to prevent us overflowing the image, which we will do, because our lines are rotated
-
-	maxIteration := 2
-	angleEstimate := 0.0 // degrees
-
-	const angleUnit = 10.0
-
-	for iteration := 0; iteration < maxIteration; iteration++ {
-		blockWidth := 64
-		blockHeight := 20
-		minAngle := -50 // units are base 0.1 degrees. So 30 = 3 degrees.
-		maxAngle := 50
-		stepAngle := 10
-		if iteration == 1 {
-			// search from -1.5 to +1.5 degrees of our closest estimate
-			minAngle = int(angleEstimate*10) - 15
-			maxAngle = int(angleEstimate*10) + 15
-			stepAngle = 1
-		}
-		// brute force
-		//minAngle = int(-5 * 10)
-		//maxAngle = int(5 * 10)
-		//stepAngle = 1
-
-		numAngleSteps := (maxAngle-minAngle)/stepAngle + 1
-		blocksAtAngle := make([][]int, numAngleSteps)
-		scoreAtAngle := make([]float64, numAngleSteps)
-		x2 := img.Width - blockWidth - padX
-		y2 := img.Height - blockHeight - padY
-		//fmt.Printf("Num blocks: %v\n", (x2-padX)*(y2-padY)/(blockWidth*blockHeight))
-		for x := padX; x < x2; x += blockWidth {
-			for y := padY; y < y2; y += blockHeight {
-				for angle := minAngle; angle <= maxAngle; angle += stepAngle {
-					angleIdx := (angle - minAngle) / stepAngle
-					maxDelta := AnalyzeBlock(*img, x, y, blockWidth, blockHeight, float64(angle)/angleUnit)
-					blocksAtAngle[angleIdx] = append(blocksAtAngle[angleIdx], maxDelta)
-				}
-			}
-		}
-		for i, deltas := range blocksAtAngle {
-			slices.Sort(deltas)
-			score := 0
-			for i := len(deltas) - 50; i < len(deltas); i++ {
-				score += deltas[i]
-			}
-			scoreAtAngle[i] = float64(score)
-		}
-		bestScore := 0.0
-		for i, score := range scoreAtAngle {
-			degrees := float64(minAngle+i*stepAngle) / angleUnit
-			fmt.Printf("angle %.1f degrees: %v\n", degrees, score)
-			if score > bestScore {
-				angleEstimate = degrees
-				bestScore = score
-			}
-		}
-	}
-	return angleEstimate
-}
-
+/*
 func IsWhite(img Image, x, y, width int, angle float64, whiteThreshold int, proportionWhitePixels float64) bool {
 	ls, _ := SetupLine(width, angle)
 	nWhite := 0
@@ -226,11 +91,12 @@ func IsWhite(img Image, x, y, width int, angle float64, whiteThreshold int, prop
 	// Subpixel
 	IterateLineSubpixel(x, y, width, ls, func(px, py int, blend int32) {
 		var va, vb int32
-		va = int32(img.Pixels[py*img.Width+px])
+		line := py * img.Width
+		va = int32(img.Pixels[line+px])
 		if blend < 0 {
-			vb = int32(img.Pixels[(py-1)*img.Width+px])
+			vb = int32(img.Pixels[line-img.Width+px])
 		} else {
-			vb = int32(img.Pixels[(py+1)*img.Width+px])
+			vb = int32(img.Pixels[line+img.Width+px])
 		}
 		wb := abs(blend)
 		wa := 65536 - wb
@@ -243,18 +109,102 @@ func IsWhite(img Image, x, y, width int, angle float64, whiteThreshold int, prop
 	})
 	return float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels
 }
+*/
 
-func GetAngle2(img *Image) float64 {
-	delta := 2.5
+// Inline iteration without callback
+// Returns the count of white and black pixels along the sampled line.
+func IterateLineSubpixelBaked(img Image, startX, startY, width int, ls LineSetup, whiteThreshold int) (int, int) {
+	pixels := img.Pixels
+	imgWidth := img.Width
+
+	dx, dy, stepY := ls.dx, ls.dy, ls.stepY
+	gradient := ls.gradient
+
+	err := dx - dy
+	x, y := startX, startY
+	endX := startX + width
+
+	line := y * imgWidth
+	nWhite := 0
+	nBlack := 0
+	wt := int32(whiteThreshold)
+
+	blend := int32(0)
+
+	for x < endX {
+		va := int32(pixels[line+x])
+
+		// Compute absolute value of blend and select the vertical pixel:
+		wb := blend
+		var vb int32
+		if wb < 0 {
+			wb = -wb
+			vb = int32(pixels[line-imgWidth+x])
+		} else {
+			vb = int32(pixels[line+imgWidth+x])
+		}
+
+		diff := vb - va
+		blended := va + int32((diff*wb)>>16)
+		if blended > wt {
+			nWhite++
+		} else {
+			nBlack++
+		}
+
+		// Update error and coordinates
+		e2 := 2 * err
+		if e2 > -dy {
+			err -= dy
+			x += 1
+		}
+		if e2 < dx {
+			err += dx
+			y += stepY
+			line += stepY * imgWidth
+			blend -= int32(stepY << 16)
+		}
+		blend += gradient
+	}
+
+	return nWhite, nBlack
+}
+
+func IsWhite(img Image, x, y, width int, angle float64, whiteThreshold int, proportionWhitePixels float64) bool {
+	ls := SetupLine(width, angle)
+	nWhite, nBlack := IterateLineSubpixelBaked(img, x, y, width, ls, whiteThreshold)
+	return float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels
+}
+
+func IsWhiteCgo(img Image, x, y, width int, angle float64, whiteThreshold int, proportionWhitePixels float64) bool {
+	ls := SetupLine(width, angle)
+	var nWhite, nBlack C.int
+	args := C.IterateLineSubpixelBakedC_Args{
+		imgWidth:       C.int(img.Width),
+		startX:         C.int(x),
+		startY:         C.int(y),
+		width:          C.int(width),
+		dx:             C.int(ls.dx),
+		dy:             C.int(ls.dy),
+		stepY:          C.int(ls.stepY),
+		gradient:       C.int32_t(ls.gradient),
+		whiteThreshold: C.int(whiteThreshold),
+	}
+	C.IterateLineSubpixelBakedC(&args, (*C.uint8_t)(&img.Pixels[0]), &nWhite, &nBlack)
+	return float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels
+}
+
+func GetAngleWhiteLines(img *Image) float64 {
+	delta := 2.0 // degrees
 	angles := []float64{}
 	for angle := -delta; angle <= delta; angle += 0.1 {
 		angles = append(angles, angle)
 	}
-	hScore, hAngle := GetAngleInner2(img, angles)
+	hScore, hAngle := getAngleWhiteLinesInner(img, angles)
 
 	// try 90 degrees rotated
 	rotated := img.Rotate90()
-	vScore, vAngle := GetAngleInner2(rotated, angles)
+	vScore, vAngle := getAngleWhiteLinesInner(rotated, angles)
 
 	if hScore > vScore {
 		return hAngle
@@ -264,9 +214,9 @@ func GetAngle2(img *Image) float64 {
 
 // run horizontal lines across the image, at all test angles, and pick the angle
 // where we get the most uninterrupted lines (pure white)
-func GetAngleInner2(img *Image, angles []float64) (score, angle float64) {
+func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64) {
 
-	padX := img.Width / 12  // arbitrary padding, but we stay away from the edges to avoid binder holes from affecting us
+	padX := img.Width / 10  // arbitrary padding, but we stay away from the edges to avoid binder holes from affecting us
 	padY := img.Height / 10 // Padding to prevent us overflowing the image, which we will do, because our lines are rotated
 
 	linesAtAngle := make([]int, len(angles))
@@ -288,7 +238,7 @@ func GetAngleInner2(img *Image, angles []float64) (score, angle float64) {
 	//targetLines := int(0.05 * float64(totalLineCount))
 	for y := padY; y < img.Height-padY; y++ {
 		for i := range angles {
-			isWhite := IsWhite(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold, lineIsWhiteThreshold)
+			isWhite := IsWhiteCgo(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold, lineIsWhiteThreshold)
 			if isWhite {
 				linesAtAngle[i] = linesAtAngle[i] + 1
 			}
