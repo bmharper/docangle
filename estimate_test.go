@@ -65,11 +65,11 @@ func testImage(t *testing.T, filename string, expectedAngle float64) {
 	gray := makeGray(img)
 	//saveImage(gray)
 	start := time.Now()
-	angle := GetAngleWhiteLines(gray)
+	score, angle := GetAngleWhiteLines(gray)
 	NumTested++
 	duration := time.Since(start)
 	TotalTime += duration
-	t.Logf("angle: %.1f, %.1f expected (time %v)", angle, expectedAngle, duration)
+	t.Logf("%30v angle: %.1f, %.1f expected (time %v). score %.2f", filepath.Base(filename), angle, expectedAngle, duration, score)
 	if expectedAngle != 999 {
 		require.InDelta(t, expectedAngle, angle, 0.2)
 	}

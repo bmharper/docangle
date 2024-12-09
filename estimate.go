@@ -195,7 +195,7 @@ func IsWhiteCgo(img Image, x, y, width int, angle float64, whiteThreshold int, p
 	return float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels
 }
 
-func GetAngleWhiteLines(img *Image) float64 {
+func GetAngleWhiteLines(img *Image) (score, degrees float64) {
 	delta := 2.0 // degrees
 	angles := []float64{}
 	for angle := -delta; angle <= delta; angle += 0.1 {
@@ -208,9 +208,9 @@ func GetAngleWhiteLines(img *Image) float64 {
 	vScore, vAngle := getAngleWhiteLinesInner(rotated, angles)
 
 	if hScore > vScore {
-		return hAngle
+		return hScore, hAngle
 	}
-	return -90 - vAngle
+	return vScore, -90 - vAngle
 }
 
 // run horizontal lines across the image, at all test angles, and pick the angle
