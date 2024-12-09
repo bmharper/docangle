@@ -1,6 +1,7 @@
 package docangle
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -50,6 +51,14 @@ func saveImage(img *Image) {
 	rgb.WriteJPEG("gray.jpg", cimg.MakeCompressParams(cimg.Sampling420, 95, 0), 0644)
 }
 
+func unrotateAndSave(img *cimg.Image, degrees float64, filename string) {
+	if img.NChan() != 3 {
+		img = img.ToRGB()
+	}
+	rotated := RotateImage(img, -degrees*Deg2Rad)
+	rotated.WriteJPEG(filename, cimg.MakeCompressParams(cimg.Sampling444, 95, 0), 0644)
+}
+
 func testImage(t *testing.T, filename string, expectedAngle float64) {
 	img, err := cimg.ReadFile(filename)
 	require.NoError(t, err)
@@ -64,6 +73,8 @@ func testImage(t *testing.T, filename string, expectedAngle float64) {
 	if expectedAngle != 999 {
 		require.InDelta(t, expectedAngle, angle, 0.2)
 	}
+	unrotatedFilename := filepath.Join("unrotated", filepath.Base(filename))
+	unrotateAndSave(img, angle, unrotatedFilename)
 }
 
 func TestImages(t *testing.T) {
@@ -82,5 +93,7 @@ func TestImages(t *testing.T) {
 	testImage(t, "testimages/cadgrafics_2_x5.jpg", 999)
 	testImage(t, "testimages/caper_1_Im0.jpg", 999)
 	testImage(t, "testimages/caper_2_Im1.jpg", 999)
+	testImage(t, "testimages/buscon_1_Im1.jpg", 0.3)
+	testImage(t, "testimages/buscon_2_Im2.jpg", 0.5)
 	t.Logf("Average time per document: %v", TotalTime/time.Duration(NumTested))
 }

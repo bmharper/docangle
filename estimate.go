@@ -8,6 +8,7 @@ import (
 import "C"
 
 const Deg2Rad = math.Pi / 180
+const Rad2Deg = 180 / math.Pi
 
 type LineSetup struct {
 	dx    int
