@@ -1,5 +1,5 @@
 #include <math.h>
-#include <stdint.h> // for uint8_t, int32_t, etc.
+#include <stdint.h>
 
 // Inline fixed-point bilinear interpolation function
 static inline void get_bilinear_pixel(
@@ -111,24 +111,3 @@ void rotate_image_bilinear(
 		}
 	}
 }
-
-// Example usage (not part of the function):
-// #include <stdio.h>
-// #include <stdlib.h>
-// int main() {
-//     int width = 640;
-//     int height = 480;
-//     uint8_t *input = malloc(width * height * 3);
-//     uint8_t *output = malloc(width * height * 3);
-//     // Load 'input' with your image data here...
-//
-//     double angle_degrees = 45.0;
-//     double angle_radians = angle_degrees * M_PI / 180.0;
-//     rotate_image_bilinear(input, output, width, height, angle_radians);
-//
-//     // Save or display 'output'...
-//
-//     free(input);
-//     free(output);
-//     return 0;
-// }
