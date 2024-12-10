@@ -177,7 +177,7 @@ func IsWhite(img Image, x, y, width int, angle float64, whiteThreshold int, prop
 	return float64(nWhite)/float64(nWhite+nBlack) > proportionWhitePixels
 }
 
-func LineScore(img Image, x, y, width int, angle float64, whiteThreshold int, proportionWhitePixels float64) float64 {
+func LineScore(img Image, x, y, width int, angle float64, whiteThreshold int) float64 {
 	ls := SetupLine(width, angle)
 	var nWhite, nBlack, nTransitions C.int
 	args := C.IterateLineSubpixelBakedC_Args{
@@ -192,7 +192,11 @@ func LineScore(img Image, x, y, width int, angle float64, whiteThreshold int, pr
 		whiteThreshold: C.int(whiteThreshold),
 	}
 	C.IterateLineSubpixelBakedC(&args, (*C.uint8_t)(&img.Pixels[0]), &nWhite, &nBlack, &nTransitions)
-	// The less transitions the better
+	// The less transitions the better.
+	// Note that the threshold in countTransitions() is dependent on the scoring function.
+	// 1:    No transitions
+	// 0.5:  1 transition
+	// 0.33: 2 transitions
 	return 1 / (1 + float64(nTransitions))
 	//if nTransitions < 5 {
 	//	return 1
@@ -231,6 +235,9 @@ func countTransitions(score []float64) int {
 	transitions := 0
 	for _, s := range score {
 		// this threshold is dependent on our scoring function
+		// If you plot a histogram of a positive case, you'll see extremely bimodal distribution, with
+		// a ton of values at 1.0, and tons of values below 0.2.
+		//fmt.Printf("%.3f,", s)
 		high := s > 0.3
 		if high != on {
 			transitions++
@@ -255,7 +262,8 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 	pixelIsWhiteThreshold := 200
 
 	// Proportion of pixels that must be white for us to consider the line white
-	lineIsWhiteThreshold := 0.98
+	// (used in prior algo)
+	//lineIsWhiteThreshold := 0.98
 
 	// The maximum number of white lines we expect to see in the image.
 	totalLineCount := img.Height - padY*2
@@ -268,7 +276,7 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 
 	for y := padY; y < img.Height-padY; y++ {
 		for i := range angles {
-			score := LineScore(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold, lineIsWhiteThreshold)
+			score := LineScore(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold)
 			scoreAtAngle[i] += score
 			scoreAtAngleAndY[i][y-padY] = score
 		}
@@ -282,7 +290,6 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 	//bestTransitions := 0
 	for i, score := range scoreAtAngle {
 		transitions := countTransitions(scoreAtAngleAndY[i])
-		//relTransitions :=
 		degrees := angles[i]
 		//fmt.Printf("angle %.1f degrees: %v\n", degrees, lines)
 		// Ensure there are at least X transitions, so that we don't pick a page with a narrow column of text down the middle,
@@ -294,6 +301,5 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 		}
 	}
 	//fmt.Printf("Transitions: %v\n", bestTransitions)
-	//fmt.Printf("Transitions: %.2f\n", 100.0*float64(bestTransitions)/float64(totalLineCount))
 	return float64(bestScore) / float64(totalLineCount), bestAngle
 }
