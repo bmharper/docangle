@@ -35,6 +35,19 @@ func makeGray(src *cimg.Image) *Image {
 	return dst
 }
 
+func rotateImage(img *cimg.Image, radians float64) *cimg.Image {
+	outWidth, outHeight := img.Width, img.Height
+	degrees := radians * rad2Deg
+	if (-135 < degrees && degrees < -45) || (45 < degrees && degrees < 135) {
+		// swap landscape/portrait
+		outWidth, outHeight = img.Height, img.Width
+	}
+
+	dst := cimg.NewImage(outWidth, outHeight, img.Format)
+	cimg.Rotate(img, dst, radians, nil)
+	return dst
+}
+
 func saveImage(img *Image) {
 	rgb := cimg.NewImage(img.Width, img.Height, cimg.PixelFormatRGB)
 	for y := 0; y < img.Height; y++ {
@@ -55,7 +68,7 @@ func unrotateAndSave(img *cimg.Image, degrees float64, filename string) {
 	if img.NChan() != 3 {
 		img = img.ToRGB()
 	}
-	rotated := RotateImage(img, -degrees*Deg2Rad)
+	rotated := rotateImage(img, -degrees*deg2Rad)
 	rotated.WriteJPEG(filename, cimg.MakeCompressParams(cimg.Sampling444, 95, 0), 0644)
 }
 
@@ -65,7 +78,7 @@ func testImage(t *testing.T, filename string, expectedAngle float64) {
 	gray := makeGray(img)
 	//saveImage(gray)
 	start := time.Now()
-	score, angle := GetAngleWhiteLines(gray)
+	score, angle := GetAngleWhiteLines(gray, nil)
 	NumTested++
 	duration := time.Since(start)
 	TotalTime += duration
@@ -78,22 +91,29 @@ func testImage(t *testing.T, filename string, expectedAngle float64) {
 }
 
 func TestImages(t *testing.T) {
-	testImage(t, "testimages/red1.jpg", 0.5)
-	testImage(t, "testimages/red2.jpg", 1.5)
-	testImage(t, "testimages/red3.jpg", -89.4)
-	testImage(t, "testimages/diamond_1_Image1.jpg", 0.3)
-	testImage(t, "testimages/diamond_2_Image1.png", 1.3)
-	testImage(t, "testimages/bpm_1_X1.jpg", 0.5)
-	testImage(t, "testimages/bpm_2_X1.jpg", -0.2)
-	testImage(t, "testimages/bpm_3_X1.jpg", -0.7)
-	testImage(t, "testimages/bpm_4_X1.jpg", -0.6)
-	testImage(t, "testimages/bpm_5_X1.jpg", -0.7)
-	testImage(t, "testimages/bpm_6_X1.jpg", -0.4)
-	testImage(t, "testimages/cadgrafics_1_x2.jpg", -90.2)
-	testImage(t, "testimages/cadgrafics_2_x5.jpg", -1.0)
-	testImage(t, "testimages/caper_1_Im0.jpg", 0.1)
-	testImage(t, "testimages/caper_2_Im1.jpg", 0)
-	testImage(t, "testimages/buscon_1_Im1.jpg", 0.3)
-	testImage(t, "testimages/buscon_2_Im2.jpg", 0.5)
+	// Unfortunately these can't be included in the public repo,
+	// because they're financial statements of private companies.
+	//testImage(t, "testimages/private/red1.jpg", 0.5)
+	//testImage(t, "testimages/private/red2.jpg", 1.5)
+	//testImage(t, "testimages/private/red3.jpg", -89.4)
+	//testImage(t, "testimages/private/diamond_1_Image1.jpg", 0.3)
+	//testImage(t, "testimages/private/diamond_2_Image1.png", 1.3)
+	//testImage(t, "testimages/private/bpm_1_X1.jpg", 0.5)
+	//testImage(t, "testimages/private/bpm_2_X1.jpg", -0.2)
+	//testImage(t, "testimages/private/bpm_3_X1.jpg", -0.7)
+	//testImage(t, "testimages/private/bpm_4_X1.jpg", -0.6)
+	//testImage(t, "testimages/private/bpm_5_X1.jpg", -0.7)
+	//testImage(t, "testimages/private/bpm_6_X1.jpg", -0.4)
+	//testImage(t, "testimages/private/cadgrafics_1_x2.jpg", -90.2)
+	//testImage(t, "testimages/private/cadgrafics_2_x5.jpg", -1.0)
+	//testImage(t, "testimages/private/caper_1_Im0.jpg", 0.1)
+	//testImage(t, "testimages/private/caper_2_Im1.jpg", 0)
+	//testImage(t, "testimages/private/buscon_1_Im1.jpg", 0.3)
+	//testImage(t, "testimages/private/buscon_2_Im2.jpg", 0.5)
+
+	testImage(t, "testimages/nvidia-1.jpg", 1.7)
+	testImage(t, "testimages/nvidia-2.jpg", -91.2)
+	testImage(t, "testimages/xerox-1.jpg", -0.8)
+
 	t.Logf("Average time per page: %v", TotalTime/time.Duration(NumTested))
 }

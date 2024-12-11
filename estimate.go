@@ -7,10 +7,10 @@ import (
 // #include "line.h"
 import "C"
 
-const Deg2Rad = math.Pi / 180
-const Rad2Deg = 180 / math.Pi
+const deg2Rad = math.Pi / 180
+const rad2Deg = 180 / math.Pi
 
-type LineSetup struct {
+type lineSetup struct {
 	dx    int
 	dy    int
 	stepY int
@@ -19,8 +19,8 @@ type LineSetup struct {
 }
 
 // angle must be between -45 and +45 degrees
-func SetupLine(width int, angle float64) LineSetup {
-	angle *= Deg2Rad
+func setupLine(angle float64) lineSetup {
+	angle *= deg2Rad
 	// Calculate deltas, at an arbitrary precision of a few thousand pixels
 	dx := 10000 * math.Cos(angle)
 	dy := 10000 * math.Sin(angle)
@@ -38,7 +38,7 @@ func SetupLine(width int, angle float64) LineSetup {
 	dx = math.Abs(dx)
 	dy = math.Abs(dy)
 
-	ls := LineSetup{
+	ls := lineSetup{
 		dx:       int(dx),
 		dy:       int(dy),
 		stepY:    stepY,
@@ -48,8 +48,8 @@ func SetupLine(width int, angle float64) LineSetup {
 	return ls
 }
 
-func LineScore(img Image, x, y, width int, angle float64, whiteThreshold int) float64 {
-	ls := SetupLine(width, angle)
+func lineScore(img Image, x, y, width int, angle float64, whiteThreshold int) float64 {
+	ls := setupLine(angle)
 	var nWhite, nBlack, nTransitions C.int
 	args := C.IterateLineSubpixelBakedC_Args{
 		imgWidth:       C.int(img.Width),
@@ -69,24 +69,6 @@ func LineScore(img Image, x, y, width int, angle float64, whiteThreshold int) fl
 	// 0.5:  1 transition
 	// 0.33: 2 transitions
 	return 1 / (1 + float64(nTransitions))
-}
-
-func GetAngleWhiteLines(img *Image) (score, degrees float64) {
-	delta := 2.0 // degrees
-	angles := []float64{}
-	for angle := -delta; angle <= delta; angle += 0.1 {
-		angles = append(angles, angle)
-	}
-	hScore, hAngle := getAngleWhiteLinesInner(img, angles)
-
-	// try 90 degrees rotated
-	rotated := img.Rotate90()
-	vScore, vAngle := getAngleWhiteLinesInner(rotated, angles)
-
-	if hScore > vScore {
-		return hScore, hAngle
-	}
-	return vScore, -90 - vAngle
 }
 
 // Count the number of times that score[i] flips between 0 and 1
@@ -132,7 +114,7 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 
 	for y := padY; y < img.Height-padY; y++ {
 		for i := range angles {
-			score := LineScore(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold)
+			score := lineScore(*img, x, y, img.Width-padX*2, angles[i], pixelIsWhiteThreshold)
 			scoreAtAngle[i] += score
 			scoreAtAngleAndY[i][y-padY] = score
 		}
@@ -158,4 +140,55 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 	}
 	//fmt.Printf("Transitions: %v\n", bestTransitions)
 	return float64(bestScore) / float64(totalLineCount), bestAngle
+}
+
+// Parameters to the GetAngleWhiteLines function
+type WhiteLinesParams struct {
+	MinDeltaDegrees  float64 // Minimum angle in degrees to test for
+	MaxDeltaDegrees  float64 // Maximum angle in degrees to test for
+	StepDegrees      float64 // Increment of each sample in degrees
+	Include90Degrees bool    // Try rotating the document by 90 degrees and then sampling through MinDeltaDegrees..MaxDeltaDegrees. This doubles the computation time.
+	MaxResolution    int     // If image width or height exceeds this, then shrink image to this size before processing. Zero to disable.
+}
+
+// Create a new WhiteLinesParams with defaults
+func NewWhiteLinesParams() *WhiteLinesParams {
+	return &WhiteLinesParams{
+		MinDeltaDegrees:  -2.5,
+		MaxDeltaDegrees:  2.5,
+		StepDegrees:      0.1,
+		Include90Degrees: true,
+		MaxResolution:    1000,
+	}
+}
+
+// Given an 8-bit grayscale document image, return the estimated degrees of rotation.
+// A positive value means the document has been rotated clockwise.
+// This is a brute force algorithm which tries every degree increment one by one,
+// and picks the angle that yields the best score.
+func GetAngleWhiteLines(img *Image, params *WhiteLinesParams) (score, degrees float64) {
+	if params == nil {
+		params = NewWhiteLinesParams()
+	}
+	angles := []float64{}
+	for angle := params.MinDeltaDegrees; angle <= params.MaxDeltaDegrees; angle += params.StepDegrees {
+		angles = append(angles, angle)
+	}
+
+	if params.MaxResolution != 0 {
+		img = img.shrinkImageIfLargerThan(params.MaxResolution)
+	}
+
+	// Test image as-is
+	hScore, hAngle := getAngleWhiteLinesInner(img, angles)
+
+	if params.Include90Degrees {
+		// First rotate by 90 degrees, and then test
+		rotated := img.Rotate90()
+		vScore, vAngle := getAngleWhiteLinesInner(rotated, angles)
+		if vScore > hScore {
+			return vScore, -90 - vAngle
+		}
+	}
+	return hScore, hAngle
 }
