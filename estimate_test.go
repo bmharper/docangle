@@ -78,7 +78,9 @@ func testImage(t *testing.T, filename string, expectedAngle float64) {
 	gray := makeGray(img)
 	//saveImage(gray)
 	start := time.Now()
-	score, angle := GetAngleWhiteLines(gray, nil)
+	params := NewWhiteLinesParams()
+	params.Include90Degrees = true
+	score, angle := GetAngleWhiteLines(gray, params)
 	NumTested++
 	duration := time.Since(start)
 	TotalTime += duration

@@ -144,11 +144,15 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 
 // Parameters to the GetAngleWhiteLines function
 type WhiteLinesParams struct {
-	MinDeltaDegrees  float64 // Minimum angle in degrees to test for
-	MaxDeltaDegrees  float64 // Maximum angle in degrees to test for
-	StepDegrees      float64 // Increment of each sample in degrees
-	Include90Degrees bool    // Try rotating the document by 90 degrees and then sampling through MinDeltaDegrees..MaxDeltaDegrees. This doubles the computation time.
-	MaxResolution    int     // If image width or height exceeds this, then shrink image to this size before processing. Zero to disable.
+	MinDeltaDegrees float64 // Minimum angle in degrees to test for
+	MaxDeltaDegrees float64 // Maximum angle in degrees to test for
+	StepDegrees     float64 // Increment of each sample in degrees
+	MaxResolution   int     // If image width or height exceeds this, then shrink image to this size before processing. Zero to disable.
+
+	// Try rotating the document by 90 degrees and then sampling through MinDeltaDegrees..MaxDeltaDegrees. This doubles the computation time.
+	// Note that this code is not smart enough to detect the direction of the text, so if this functionality is invoked, it is 50% likely
+	// to be out by 180 degrees. In other words, you may end up having a perfectly straight document, but it has a 50% change of being upside-down.
+	Include90Degrees bool
 }
 
 // Create a new WhiteLinesParams with defaults
@@ -157,7 +161,7 @@ func NewWhiteLinesParams() *WhiteLinesParams {
 		MinDeltaDegrees:  -2.5,
 		MaxDeltaDegrees:  2.5,
 		StepDegrees:      0.1,
-		Include90Degrees: true,
+		Include90Degrees: false,
 		MaxResolution:    1000,
 	}
 }
