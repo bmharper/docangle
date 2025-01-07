@@ -187,11 +187,12 @@ func GetAngleWhiteLines(img *Image, params *WhiteLinesParams) (score, degrees fl
 	hScore, hAngle := getAngleWhiteLinesInner(img, angles)
 
 	if params.Include90Degrees {
-		// First rotate by 90 degrees, and then test
+		// First rotate by 90 degrees, and then test.
+		// Unfortunately we can't tell if the document is upside down or not.
 		rotated := img.Rotate90()
 		vScore, vAngle := getAngleWhiteLinesInner(rotated, angles)
 		if vScore > hScore {
-			return vScore, -90 - vAngle
+			return vScore, 90 - vAngle
 		}
 	}
 	return hScore, hAngle
