@@ -85,35 +85,37 @@ func testImage(t *testing.T, filename string, expectedAngle float64) {
 	duration := time.Since(start)
 	TotalTime += duration
 	t.Logf("%30v angle: %5.1f, %5.1f expected (time %4dms). score %.2f", filepath.Base(filename), angle, expectedAngle, duration.Milliseconds(), score)
+	unrotatedFilename := filepath.Join("unrotated", filepath.Base(filename))
+	unrotateAndSave(img, angle, unrotatedFilename)
 	if expectedAngle != 999 {
 		require.InDelta(t, expectedAngle, angle, 0.2)
 	}
-	unrotatedFilename := filepath.Join("unrotated", filepath.Base(filename))
-	unrotateAndSave(img, angle, unrotatedFilename)
 }
 
 func TestImages(t *testing.T) {
 	// Unfortunately these can't be included in the public repo,
 	// because they're financial statements of private companies.
 	if _, err := filepath.Glob("testimages/private/*"); err == nil {
-		testImage(t, "testimages/private/red1.jpg", 0.5)
-		testImage(t, "testimages/private/red2.jpg", 1.5)
-		testImage(t, "testimages/private/red3.jpg", 90.5)
-		testImage(t, "testimages/private/diamond_1_Image1.jpg", 0.3)
-		testImage(t, "testimages/private/diamond_2_Image1.png", 1.3)
 		testImage(t, "testimages/private/bpm_1_X1.jpg", 0.5)
 		testImage(t, "testimages/private/bpm_2_X1.jpg", -0.2)
 		testImage(t, "testimages/private/bpm_3_X1.jpg", -0.7)
 		testImage(t, "testimages/private/bpm_4_X1.jpg", -0.6)
 		testImage(t, "testimages/private/bpm_5_X1.jpg", -0.7)
 		testImage(t, "testimages/private/bpm_6_X1.jpg", -0.4)
+		testImage(t, "testimages/private/buscon_1_Im1.jpg", 0.3)
+		testImage(t, "testimages/private/buscon_2_Im2.jpg", 0.5)
 		testImage(t, "testimages/private/cadgrafics_1_x2.jpg", 89.8)
 		testImage(t, "testimages/private/cadgrafics_2_x5.jpg", -1.0)
 		testImage(t, "testimages/private/caper_1_Im0.jpg", 0.1)
 		testImage(t, "testimages/private/caper_2_Im1.jpg", 0)
-		testImage(t, "testimages/private/buscon_1_Im1.jpg", 0.3)
-		testImage(t, "testimages/private/buscon_2_Im2.jpg", 0.5)
-		testImage(t, "testimages/private/jar_2_I1.jpg", 89.6) // Should be -90.4 once we have our "text upright" NN going (same applies to many of the other 90ish cases)
+		testImage(t, "testimages/private/diamond_1_Image1.jpg", 0.3)
+		testImage(t, "testimages/private/diamond_2_Image1.png", 1.3)
+		testImage(t, "testimages/private/gq_1_Im1.png", 90.5)
+		testImage(t, "testimages/private/gq_2_Im2.png", 0.4)
+		testImage(t, "testimages/private/jar_2_I1.jpg", 89.6)
+		testImage(t, "testimages/private/red1.jpg", 0.5)
+		testImage(t, "testimages/private/red2.jpg", 1.5)
+		testImage(t, "testimages/private/red3.jpg", 90.5)
 	}
 
 	testImage(t, "testimages/nvidia-1.jpg", 1.7)

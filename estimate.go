@@ -1,6 +1,7 @@
 package docangle
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -9,6 +10,7 @@ import "C"
 
 const deg2Rad = math.Pi / 180
 const rad2Deg = 180 / math.Pi
+const verbose = false
 
 type lineSetup struct {
 	dx    int
@@ -129,10 +131,12 @@ func getAngleWhiteLinesInner(img *Image, angles []float64) (score, angle float64
 	for i, score := range scoreAtAngle {
 		transitions := countTransitions(scoreAtAngleAndY[i])
 		degrees := angles[i]
-		//fmt.Printf("angle %.1f degrees: %v\n", degrees, lines)
+		if verbose {
+			fmt.Printf("angle %4.1f degrees: %6.1f, transitions: %v\n", degrees, score, transitions)
+		}
 		// Ensure there are at least X transitions, so that we don't pick a page with a narrow column of text down the middle,
 		// and two wide margins. We need transitions between white line and content.
-		if score > bestScore && transitions >= 10 {
+		if score > bestScore && transitions >= 5 {
 			bestAngle = degrees
 			bestScore = score
 			//bestTransitions = transitions
